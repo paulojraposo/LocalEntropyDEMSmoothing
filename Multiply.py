@@ -12,11 +12,18 @@
 import numpy as np
 import gdal, os, argparse
 
-def multiply(rast, aFactor):
-    """foo"""
+
+def main():
+
+    parser = argparse.ArgumentParser(description="Used to multiply a raster by some constant number.")
+    parser.add_argument('INRAST', help="Full path to input GeoTiff.")
+    parser.add_argument('FACTOR', help="The number by which to multiply each cell. Give as integer or float.")
+    parser.add_argument('OUTRAST', help="Full path to output GeoTiff. Created as a one-band 32-bit Float GeoTiff, with -99999.0 as NoData.")
+    args = parser.parse_args()
+
     print("Reading raster...")
-    rastData = gdal.Open(rast)
-    rastBand = rastData.GetRasterBand(1)
+    rastData = gdal.Open(args.INRAST)
+    rastBand = rastData.GetRasterBand(1) # One-band raster assumed.
     rastXSize = rastBand.XSize
     rastYSize = rastBand.YSize
     rastGeoTransform = rastData.GetGeoTransform()
@@ -24,16 +31,15 @@ def multiply(rast, aFactor):
     rastArray = gdal.Band.ReadAsArray(rastBand)
 
     print("Multiplying...")
-    floatFactor = float(aFactor)
+    # Multiplication of array in place.
+    floatFactor = float(args.FACTOR)
     for x in np.nditer(rastArray, op_flags=["readwrite"]):
         x[...] = x * floatFactor
 
-    inrastDir, inrastFile = os.path.split(rast)
-    inrastbasename = os.path.splitext( inrastFile )[0]
-    outrast = os.path.join(inrastDir, inrastbasename + "_x" + str(aFactor) + ".tif")
     print("Writing out to disk...")
     driver = gdal.GetDriverByName("GTiff")
-    ds = driver.Create(outrast, rastXSize, rastYSize, 1, gdal.GDT_Float32)
+    # Float 32-bit bit depth set here:
+    ds = driver.Create(args.OUTRAST, rastXSize, rastYSize, 1, gdal.GDT_Float32)
     ds.SetGeoTransform(rastGeoTransform)
     ds.SetProjection(rastWKTProjection)
     dsB1 = ds.GetRasterBand(1)
@@ -41,21 +47,7 @@ def multiply(rast, aFactor):
     dsB1.WriteArray(rastArray)
     ds.FlushCache()
 
-    print("Written out to: " + outrast)
-
-def main():
-
-    parser = argparse.ArgumentParser(description="Used to multiply a raster by some constant number.")
-    parser.add_argument('INRAST')
-    parser.add_argument('FACTOR')
-    args = parser.parse_args()
-
-    print("Input raster: " + args.INRAST)
-    print("Input factor: " + args.FACTOR)
-    
-    multiply(args.INRAST, args.FACTOR)
-
-    print("Done")
+    print("Written out to: " + args.OUTRAST)
 
 
 if __name__ == '__main__':
